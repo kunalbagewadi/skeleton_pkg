@@ -28,8 +28,8 @@ def trace( *args ):
     pass # print( "".join(map(str,args)) )
 
 def debug( *args ):
-    print( "".join(map(str,args)) )
-    pass # print( "".join(map(str,args)) )
+    #print( "".join(map(str,args)) )
+    pass
 '''
 hip= Pose()     # ID=1 is hip
 ab=Pose()       # ID=2 is abdomen
@@ -49,14 +49,19 @@ pose_array= PoseArray()
 pub = rospy.Publisher('skeleton1', PoseArray, queue_size=10)
 
 # Form geometry_msgs/Pose messages to publish in ROS
+# self.rigidBodyListener callback function
 def skeletonMessage( id, pos, rot ):
     global pose_array
-    debug("ID= ",id)
-    debug( "\tPosition= ", pos[0],",", pos[1],",", pos[2] )
-    debug( "\tOrientation= ", rot[0],",", rot[1],",", rot[2],",", rot[3] )
+    trace("ID= ",id)
+    trace( "\tPosition= ", pos[0],",", pos[1],",", pos[2] )
+    trace( "\tOrientation= ", rot[0],",", rot[1],",", rot[2],",", rot[3] )
     # Reset pose_array at start
     if id==1:
         pose_array= PoseArray()
+
+    #if id==9: # print left hand Pose
+    #	debug( "\tPosition= ", pos[0],",", pos[1],",", pos[2] )
+    #	debug( "\tOrientation= ", rot[0],",", rot[1],",", rot[2],",", rot[3] )
 
     # Use self.sendCommand(..NAT_REQUEST_MODELDEF..) for ID to body mapping
     # Mapping given above
@@ -76,7 +81,7 @@ def skeletonMessage( id, pos, rot ):
     if id==13:
         #pub = rospy.Publisher('skeleton1', PoseArray, queue_size=10)
         #rospy.init_node('skeleton1_node', anonymous=True)
-        debug("New message:")
+        trace("New message:")
         pub.publish(pose_array)
 
     
@@ -500,7 +505,7 @@ class NatNetClient:
 
     def __processMessage( self, data ):
         trace( "Begin Packet\n------------\n" )
-        #print( "[debug][__processMessage] data=  ", data)
+        #print( "[__processMessage] data=  ", data)
 
         messageID = int.from_bytes( data[0:2], byteorder='little' )
         trace( "Message ID:", messageID )
@@ -557,8 +562,8 @@ class NatNetClient:
         data += commandStr.encode( 'utf-8' )
         data += b'\0'
 
-        #print( "[debug][sendCommand] data=  ", data)
-        #print( "[debug][sendCommand] address=  ", address)
+        #print( "[sendCommand] data=  ", data)
+        #print( "[sendCommand] address=  ", address)
 
         socket.sendto( data, address )
         
@@ -569,7 +574,7 @@ class NatNetClient:
             trace( "Could not open data channel" )
             exit
 
-        #print( "[debug][run] dataSocket= ", self.dataSocket)
+        #print( "[run] dataSocket= ", self.dataSocket)
 
         # Create the command socket
         self.commandSocket = self.__createCommandSocket()
@@ -577,24 +582,26 @@ class NatNetClient:
             trace( "Could not open command channel" )
             exit
 
-        #print( "[debug][run] commandSocket= ", self.commandSocket)
+        #print( "[run] commandSocket= ", self.commandSocket)
 
         # Create a separate thread for receiving data packets
         dataThread = Thread( target = self.__dataThreadFunction, args = (self.dataSocket, ))
         dataThread.start()
 
-        #print( "[debug][run] dataThread created: ", dataThread)
+        #print( "[run] dataThread created: ", dataThread)
 
         # Create a separate thread for receiving command packets
         commandThread = Thread( target = self.__dataThreadFunction, args = (self.commandSocket, ))
         commandThread.start()
 
-        #print( "[debug][run] commandThread created: ", commandThread)
-        rospy.init_node('skeleton1_node', anonymous=True)
+        #print( "[run] commandThread created: ", commandThread)
+
+        # Init a ROS node. disable_signals=True to kill node with Ctrl-C [init_node() outside main thread]
+        rospy.init_node('skeleton1_node', disable_signals=True)   
         
 
         # use NAT_PING to get continuous stream of data
         self.sendCommand( self.NAT_PING, "", self.commandSocket, (self.serverIPAddress, self.commandPort) )
 
-        # use NAT_REQUEST_MODELDEF to get names of bodies/skeleton/markers being tracked
+        # OR use NAT_REQUEST_MODELDEF to get names of bodies/skeleton/markers being tracked
         #self.sendCommand( self.NAT_REQUEST_MODELDEF, "", self.commandSocket, (self.serverIPAddress, self.commandPort) )
